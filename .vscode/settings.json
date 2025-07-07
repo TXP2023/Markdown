@@ -1,0 +1,13 @@
+{
+    "[markdown]": {
+        "editor.quickSuggestions": {
+            "comments": "on",
+            "strings": "on",
+            "other": "on"
+        }
+    },
+    "files.associations": {
+        "algorithm": "cpp",
+        "iostream": "cpp"
+    }
+}
