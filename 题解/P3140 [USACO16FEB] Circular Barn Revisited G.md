@@ -1,18 +1,39 @@
-首先，尝试枚举建立信号站的位置是 $1e16$ 的复杂度， 现在就要 $O(1)$ 求出每个信号站的不合理值。
+# 问题描述
 
-设当前枚举的信号站的位置为 $i$, 在 $i$ 左边的信号站有  $cnt_i$ 个.
+现在有一个由 $n$ 个谷仓组成的环，相邻的两个谷仓是可以互相到达的。 同时，每个谷仓都有一个打开通往外部的门。 奶牛们可以在谷仓内部顺时针行走。 现在所有奶牛都在谷仓外部， 可以打开$k$个通往外部的门谷仓与外部联通。 求奶牛们所走的距离的和的最小值 
 
-对于位于信号站左边的信号站。
+$3 \leq n \leq 100$
 
-$$\Sigma_{j=1}^{cnt_i }|i - pos_j|$$
+$1 \leq k \leq 7$
 
-$$i*cnt_i - \Sigma_{j=1}^{cnt_i} pos_j$$
+# Slove
 
-对于右边的信号站同理， 使用二分查找 $cnt_i$
+注意到问题是在一个环上的，且总代价和区间内部所包含的点有关。 考虑**区间dp** 
 
-复杂度 $O(1e6*log_2N)$
+既然是区间dp, 那么肯定有两个维度记录起始点和终点.
 
-但是有可能存在拜访位置为负数的情况，那么让每个位置向右偏离 $+10^6$
+同时打开门的数量不同也会使得答案不同。 
+
+故得出
+
+$dp[i][l][r]$ 为**在 $[l,r]$ 的范围内设置 $i$ 个谷仓的最小代价**， 要求这 **$[l,r]$ 中每个谷仓都可以到达**
+
+我们令 $get\_path(i,j)$ 为从 $i$ 顺时针走到 $j$ 的距离
+
+
+
+那么对于 $i=1$ ， 开口必须设立在 $l$ 处，所以对于所有的 $i=1$
+
+$$dp[i][l][r] = \Sigma_{j=l}^r get\_path(l, j)* num_j$$
+
+
+对于 $i > 1$, 每次从打开 $i-1$ 门的状态转移, 枚举分割点 $k$
+
+我们令 $pre(k)$ 为 $k$ 在环上顺时针的前驱
+
+$$dp[i][l][r] = std::min(dp[i - 1][l][pre(k)] + dp[1][k][r], dp[i][l][r]);$$
+
+具体代码
 
 ```cpp
 //+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
@@ -37,7 +58,8 @@ $$i*cnt_i - \Sigma_{j=1}^{cnt_i} pos_j$$
 #define _FREAD        true
 #define MAX_INF       1e18
 #define MAX_NUM_SIZE  35
-#define MAXN          (size_t)(1e6+5)
+#define MAXN          105
+#define MAXK          10
 
 typedef long long int ll;
 typedef unsigned long long int ull;
@@ -56,7 +78,6 @@ inline _T fpow(_T a, _T n, _T mod) {
     }
     return ret % mod;
 }
-
 //快读函数声明
 template< typename Type >
 inline Type fread(Type* p = nullptr);
@@ -65,8 +86,16 @@ inline Type fread(Type* p = nullptr);
 template<typename Type>
 inline void fwrite(Type x);
 
-ll pos[MAXN], sum[MAXN], val[(ll)2e6 + 5];
-ll n, k, ans;
+ll barn[MAXN], sum[MAXN];
+ll dp[MAXK][MAXN][MAXN];
+ll n, m;
+
+inline ll get_sum(ll l, ll r) {
+    if (l <= r) {
+        return sum[r] - sum[l - 1];
+    }
+    return sum[n] - sum[l - 1] + sum[r];
+}
 
 int main() {
 
@@ -78,41 +107,67 @@ int main() {
     clock_t start = clock();
 #endif // _RUN_TIME
 
-    fread(&n), fread(&k);
+    fread(&n), fread(&m);
 
     for (size_t i = 1; i <= n; i++) {
-        pos[i] = fread<ll>() + 1e6;
+        fread(&barn[i]);
+        sum[i] = sum[i - 1] + barn[i];
     }
-
-    std::sort(pos + 1, pos + 1 + n);
 
     for (size_t i = 1; i <= n; i++) {
-        sum[i] = sum[i - 1] + pos[i];
+        for (size_t j = 1; j <= n; j++) {
+            if (i == j) {
+                continue;
+            }
+            ll cnt = 0, k = i;
+            do {
+                ++k, ++cnt;
+                if (k > n) {
+                    k -= n;
+                }
+                dp[1][i][j] += cnt * barn[k];
+            } while (k != j);
+        }
     }
 
-    for (size_t i = 0; i <= 2e6; i++) {
-        ll temp = (std::lower_bound(pos + 1, pos + 1 + n, i) - pos - 1);
-        if (temp != n + 1 && temp != 0) {
-            val[i] += i * temp - sum[temp];
-        }
-        temp = (std::upper_bound(pos + 1, pos + 1 + n, i) - pos);
-        if (temp != n + 1) {
-            val[i] += sum[n] - sum[temp - 1] - i * (n - temp + 1);
+    for (size_t i = 2; i <= m; i++) {
+        for (size_t len = i; len <= n; len++) {
+            for (size_t l = 1; l <= n; l++) {
+                ll r = l + len - 1;
+                if (r > n) {
+                    r -= n;
+                }
+                dp[i][l][r] = MAX_INF;
+                if (l == r) {
+                    continue;
+                }
+                ll k = l + i - 2;
+                do {
+                    ++k;
+                    if (k > n) {
+                        k -= n;
+                    }
+                    //dp[1][i][j] += cnt * barn[k];
+                    ll temp = k - 1;
+                    if (temp == 0) {
+                        temp = n;
+                    }
+                    dp[i][l][r] = std::min(dp[i - 1][l][temp] + dp[1][k][r], dp[i][l][r]);
+                } while (k != r);
+            }
         }
     }
 
-    std::sort(val, val + (ll)2e6);
-
-    for (size_t i = 0; i < k; i++) {
-        ans += val[i];
+    ll ans = MAX_INF;
+    for (size_t i = 1; i <= n; i++) {
+        ll j = i + n - 1;
+        if (j > n) {
+            j -= n;
+        }
+        ans = std::min(dp[m][i][j], ans);
     }
 
     printf("%lld\n", ans);
-
-
-
-
-
 
 #ifdef _RUN_TIME
     printf("The running duration is not less than %ld ms\n", clock() - start);
@@ -181,3 +236,5 @@ inline void fwrite(Type x) {
  *
  */
 ```
+
+
